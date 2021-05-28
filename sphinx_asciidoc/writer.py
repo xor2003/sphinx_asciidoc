@@ -118,6 +118,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.turnsInList = 0
         self.inDesc = False
         self.inList = False
+        self.inField = False
         self.extLinkActive = False
         self.inAdmonition = False
         self.tabColSpecs = []
@@ -217,6 +218,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def visit_paragraph(self, node):
         if self.inDesc == True:
             nline = ""
+        elif self.inField == True:
+            nline = ""
         elif self.inTable == True or self.inList == True:
             nline = ""
         else:
@@ -229,6 +232,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             nline = "\n\n"
         elif self.inTable == True:
             nline = "\n\n"
+        elif self.inField == True:
+            nline = ""
         else:
             nline = "\n"
         self.body.append(nline)
@@ -1042,17 +1047,18 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def depart_field(self, node):
         self.body.append("\n")
 
+    # Metadata fields
     def visit_field_name(self, node):
         self.body.append(":")
 
     def depart_field_name(self, node):
-        self.body.append(":")
+        self.body.append(": ")
 
     def visit_field_body(self, node):
-        self.body.append("")
+        self.inField = True
 
     def depart_field_body(self, node):
-        self.body.append("")
+        self.inField = False
 
     def visit_centered(self, node):
         self.body.append("CENTER:")
