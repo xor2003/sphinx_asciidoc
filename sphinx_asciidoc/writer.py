@@ -57,12 +57,12 @@ def toansi(text):
 
 sectionEquals = {  # Stores values for different section levels
     -1: "",
-    0: "= ",  # Document Title (Level 0)
-    1: "== ",  # Level 1 Section Title
-    2: "=== ",  # Level 2 Section Title
-    3: "==== ",  # Level 3 Section Title
-    4: "===== ",  # Level 4 Section Title
-    5: "====== ",  # Level 5 Section Title
+    0: "=",  # Document Title (Level 0)
+    1: "==",  # Level 1 Section Title
+    2: "===",  # Level 2 Section Title
+    3: "====",  # Level 3 Section Title
+    4: "=====",  # Level 4 Section Title
+    5: "======",  # Level 5 Section Title
 }
 
 
@@ -119,6 +119,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inDesc = False
         self.inList = False
         self.inField = False
+        self.inFigure = False
+        self.lastFigure = {"image": "", "caption": "", "legend": "", "ref": ""}
         self.extLinkActive = False
         self.inAdmonition = False
         self.tabColSpecs = []
@@ -180,10 +182,14 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         ##            self.body.append(self.bullet+'')
         ##            self.bullet = None
         ##        self.body.append(toansi(node.astext()))
-        if self.inLineBlock == True:
-            self.body.append(node.astext() + " +")
+        if self.inFigure:
+            # Figures are all handled in figure_depart, so skip
+            pass
         else:
-            self.body.append(node.astext())
+            if self.inLineBlock == True:
+                self.body.append(node.astext() + " +")
+            else:
+                self.body.append(node.astext())
 
     def depart_Text(self, node):
         pass
@@ -324,12 +330,19 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.linkType = None
         if self.inLiteralBlock:
             pass
+        elif self.inFigure:
+            # Figures are all handled in figure_depart, so skip
+            pass
         elif internal == True and aname == "" and self.inToctree == True:
             self.linkType = "include"
             self.body.append("include::%s[leveloffset=+1][" % uri)
         elif uri and name:
             self.linkType = "link"
-            nline = "link:++%s++[" % uri
+            # Make an attempt to only use the link macro if needed
+            if any(x in uri for x in [" ", "^", "__"]):
+                nline = "link:++%s++[" % uri
+            else:
+                nline = "{}[".format(uri)
             self.body.append(nline)
         elif refid:
             self.linkType = "refx"
@@ -360,7 +373,10 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             # print(node)
 
     def depart_reference(self, node):
-        if self.inLiteralBlock is False:
+        if self.inFigure:
+            # Figures are all handled in figure_depart, so skip
+            pass
+        elif self.inLiteralBlock is False:
             self.body.append("]")
 
     def visit_docinfo(self, node):
@@ -413,7 +429,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def depart_sidebar(self, node):
         self.body.append("****")
 
-    def visit_target(self, node):  # Create internal inline links.
+    def visit_target(self, node):
+        # Create internal inline links.
         try:
             refid = node.get("refid")
             ids = node.get("ids")
@@ -592,7 +609,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         mline = "====\n"
         self.body.append(nline + mline)
 
-    def depart_caution(self, node):  # FIXME: change to level = len(self.lists)
+    def depart_caution(self, node):
+        # FIXME: change to level = len(self.lists)
         if self.inList == True:
             nline = "====\n\n"
         else:
@@ -640,19 +658,27 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             self.section_level -= 1
 
     def visit_image(self, node):
-        try:
-            alt = node.get("alt")
-            if alt == None:
-                alt = "Unnamed image"
-        except KeyError:
-            alt = "Unnamed image"
+        if self.inFigure:
+            # Figures are all handled in figure_depart, so skip
+            pass
+        else:
+            try:
+                alt = node.get("alt")
+                if alt == None:
+                    alt = ""
+            except KeyError:
+                alt = ""
 
-        uri = node.get("uri")
-        nline = "\nimage::%s[%s]" % (uri, alt)
-        self.body.append(nline)
+            uri = node.get("uri")
+            nline = "\nimage::%s[%s]" % (uri, alt)
+            self.body.append(nline)
 
     def depart_image(self, node):
-        self.body.append("\n\n")
+        if self.inFigure:
+            # Figures are all handled in figure_depart, so skip
+            pass
+        else:
+            self.body.append("\n\n")
 
     def visit_footnote_reference(self, node):
         try:
@@ -693,31 +719,71 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         # self.body.append('')
         pass
 
+    # Figures in AsciiDoc have their elements in a different
+    # order to the source rst, as well as having a different syntax.
+    # This means that we need to buffer the figure into self.lastFigure,
+    # then output the elements in the correct order & format in the
+    # figure_depart.
     def visit_figure(self, node):
-        ids = node["ids"]
-        count = str(self.figures)
-        if len(ids) == 0:
-            self.figures += 1
-            ids = self.sourceFile + "-figure-" + str(self.figures)
-        while True:
-            if ids not in self.idPool:
-                self.idPool.append(ids)
-                break
-            else:
-                ids = ids + "-duplicate"
-        nline = "\n[[%s]]\n" % ids
-        mline = "." + ids + "\n"
-        self.body.append(nline + mline)
+        for n in node.traverse(include_self=False):
+            ns = str(n)
+            # print(ns)
+            if ns.startswith("<image"):
+                self.lastFigure["image"] = n
+            elif ns.startswith("<caption"):
+                self.lastFigure["caption"] = n
+            elif ns.startswith("<legend"):
+                self.lastFigure["legend"] = n
+            elif ns.startswith("<reference"):
+                self.lastFigure["ref"] = n
 
+        self.inFigure = True
+
+    # FIXME: I'm sure there's a better way to do this, triggering a visit fot
+    # the elements in the order we want, rather than just outputting it
+    # all in here? Maybe self.displatch_visit(node)?
     def depart_figure(self, node):
-        self.body.append("\n\n")
+        if self.lastFigure["caption"] or self.lastFigure["legend"]:
+            cap = self.lastFigure["caption"].astext()
+            if cap.startswith("."):
+                cap = "\{}".format(cap)
+
+            self.body.append(
+                "\n.{}{}\n".format(
+                    cap,
+                    self.lastFigure["legend"].astext(),
+                )
+            )
+        if self.lastFigure["ref"]:
+            self.body.append("[link={}]\n".format(self.lastFigure["ref"].get("refuri")))
+        if self.lastFigure["image"]:
+            self.body.append(
+                "image::{}[{}]\n\n".format(
+                    self.lastFigure["image"].get("uri"),
+                    str(self.lastFigure["image"].get("alt") or ""),
+                )
+            )
+
+        self.inFigure = False
 
     def visit_caption(self, node):
-        self.body.append("\n:toctitle: ")
+        if self.inFigure:
+            # Figures are all handled in figure_depart, so skip
+            pass
+        else:
+            self.body.append("\n:toctitle: ")
 
     def depart_caption(self, node):
-        self.body.append("\n")
-        self.body.append("\n")
+        if not self.inFigure:
+            self.body.append("\n\n")
+
+    def visit_legend(self, node):
+        if not self.inFigure:
+            self.body.append("LEGEND:")
+
+    def depart_legend(self, node):
+        if not self.inFigure:
+            self.body.append(":LEGEND")
 
     def visit_table(self, node):  ## Whole table element
         self.inTable = True
@@ -1022,12 +1088,6 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     def depart_option_argument(self, node):
         self.body.append(" ")
-
-    def visit_legend(self, node):
-        self.body.append("LEGEND:")
-
-    def depart_legend(self, node):
-        self.body.append(":LEGEND")
 
     def visit_description(self, node):
         self.body.append(":: ")

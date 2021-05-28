@@ -1,4 +1,8 @@
 {
   "restructuredtext.confPath": "",
-  "python.formatting.provider": "black"
+  "python.formatting.provider": "black",
+  "[python]": {
+    "editor.formatOnPaste": false,
+    "editor.formatOnSaveMode": "file"
+  }
 }
