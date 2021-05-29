@@ -196,12 +196,10 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         pass
 
     def visit_strong(self, node):  # Does the bold face
-        nline = "*"
-        self.body.append(nline)
+        self.body.append("*")
 
     def depart_strong(self, node):
-        nline = "*"
-        self.body.append(nline)
+        self.body.append("*")
 
     def visit_index(self, node):  # FIXME
         entrylist = node.get("entries")
@@ -246,8 +244,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.body.append(nline)
 
     def visit_compact_paragraph(self, node):
-        nline = ""
-        self.body.append(nline)
+        self.body.append("")
 
     @dedent
     def depart_compact_paragraph(self, node):
@@ -330,7 +327,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         internal = node.get("internal")
         self.linkType = None
 
-        ns = str(node.traverse(include_self=False)[0])
+        for n in node.traverse(include_self=False):
+            ns = str(n)
+
         if ns.startswith("<image"):
             # Link warpps an image. Needs to come out
             # link, then image
@@ -394,30 +393,26 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             self.body.append("]")
 
     def visit_docinfo(self, node):
-        # nline = 'Document information: '
-        # self.body.append(nline)
+        # self.body.append('Document information: ')
         self.body.append("")
 
     def depart_docinfo(self, node):
         self.body.append("\n\n")
 
     def visit_author(self, node):
-        nline = "Author: "
-        self.body.append(nline)
+        self.body.append("Author: ")
 
     def depart_author(self, node):
         self.body.append("\n\n")
 
     def visit_version(self, node):
-        nline = "Document version: "
-        self.body.append(nline)
+        self.body.append("Document version: ")
 
     def depart_version(self, node):
         self.body.append("\n\n")
 
     def visit_copyright(self, node):
-        nline = "Copyright: "
-        self.body.append(nline)
+        self.body.append("Copyright: ")
 
     def depart_copyright(self, node):
         self.body.append("\n\n")
@@ -502,15 +497,13 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inAdmonition = False
 
     def visit_literal(self, node):
-        nline = "`"
-        self.body.append(nline)
+        self.body.append("`")
 
     def depart_literal(self, node):
         self.body.append("`")
 
     def visit_literal_strong(self, node):
-        nline = "`*"
-        self.body.append(nline)
+        self.body.append("`*")
 
     def depart_literal_strong(self, node):
         self.body.append("*`")
@@ -538,15 +531,13 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inLiteralBlock = False
 
     def visit_emphasis(self, node):
-        nline = " _"
-        self.body.append(nline)
+        self.body.append(" _")
 
     def depart_emphasis(self, node):
         self.body.append("_")
 
     def visit_literal_emphasis(self, node):
-        nline = " `*"
-        self.body.append(nline)
+        self.body.append(" `*")
 
     def depart_literal_emphasis(self, node):
         self.body.append("*`")
@@ -663,8 +654,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             self.body.append(":: ")
 
     def visit_definition(self, node):
-        nline = "\n"
-        self.body.append(nline)
+        self.body.append("\n")
 
     def depart_definition(self, node):
         self.body.append("\n\n")
@@ -702,15 +692,13 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.body.append(nline)
 
     def depart_footnote_reference(self, node):
-        nline = "] "
-        self.body.append(nline)
+        self.body.append("] ")
 
     def visit_footnote(self, node):
         pass
 
     def depart_footnote(self, node):
-        nline = "\n"
-        self.body.append(nline)
+        self.body.append("\n")
 
     def visit_label(self, node):
         self.body.append("[[*")
@@ -719,8 +707,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.body.append("*]]")
 
     def visit_contents(self, node):
-        nline = "== "
-        self.body.append(nline)
+        self.body.append("== ")
 
     def depart_contents(self, node):
         pass
