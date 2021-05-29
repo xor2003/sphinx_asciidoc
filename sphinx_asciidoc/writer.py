@@ -108,10 +108,13 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.section_level = 0
         self.par_level = -1
 
-        self.lists = []  # stack of the currents bullets
+        # stack of the currents bullets
+        self.lists = []
         self.listLevel = len(self.lists)
-        self.bullet = "*"  # next one to add to the next paragraph
-        self.figures = 0  # Counts figures for reference targets
+        # next one to add to the next paragraph
+        self.bullet = "*"
+        # Counts figures for reference targets
+        self.figures = 0
         self.images = 0
         self.idcount = 0
         self.inTable = False
@@ -122,6 +125,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inImgLink = False
         self.inFigure = False
         self.lastFigure = {"image": "", "caption": "", "legend": "", "ref": ""}
+        self.inTopicContents = False
+        self.outputTOC = False
         self.extLinkActive = False
         self.inAdmonition = False
         self.tabColSpecs = []
@@ -159,7 +164,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         pass
 
     def visit_title(self, node):
-        if isinstance(node.parent, nodes.document):
+        if self.inTopicContents and not self.outputTOC:
+            pass
+        elif isinstance(node.parent, nodes.document):
             """doc title"""
             self.body.append("\n\n%s " % sectionEquals[0])
         elif isinstance(node.parent, nodes.section):
@@ -173,7 +180,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             self.body.append("\n.")  # Table title
 
     def depart_title(self, node):
-        if isinstance(node.parent, nodes.table):
+        if self.inTopicContents and not self.outputTOC:
+            pass
+        elif isinstance(node.parent, nodes.table):
             self.body.append("\n")  # Table title
         else:
             self.body.append("\n")
@@ -183,7 +192,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         ##            self.body.append(self.bullet+'')
         ##            self.bullet = None
         ##        self.body.append(toansi(node.astext()))
-        if self.inFigure:
+        if self.inTopicContents and not self.outputTOC:
+            pass
+        elif self.inFigure:
             # Figures are all handled in figure_depart, so skip
             pass
         else:
@@ -227,6 +238,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             nline = ""
         elif self.inTable == True or self.inList == True:
             nline = ""
+        elif self.inTopicContents and not self.outputTOC:
+            nline = ""
         else:
             nline = "\n"
         self.body.append(nline)
@@ -238,6 +251,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         elif self.inTable == True:
             nline = "\n\n"
         elif self.inField == True:
+            nline = ""
+        elif self.inTopicContents and not self.outputTOC:
             nline = ""
         else:
             nline = "\n"
@@ -255,18 +270,24 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.body.append(nline)
 
     def visit_bullet_list(self, node):  # Unordered list
-        self.inList = True
-        self.lists.append("bulleted")
-        if self.turnsInList == 0:
-            self.body.append("\n")
-        self.turnsInList += 1
+        if self.inTopicContents and not self.outputTOC:
+            pass
+        else:
+            self.inList = True
+            self.lists.append("bulleted")
+            if self.turnsInList == 0:
+                self.body.append("\n")
+            self.turnsInList += 1
 
     def depart_bullet_list(self, node):
-        self.body.append("\n")
-        self.lists.pop(-1)
-        self.turnsInList -= 1
-        if self.turnsInList <= 0:
-            self.inList = False
+        if self.inTopicContents and not self.outputTOC:
+            pass
+        else:
+            self.body.append("\n")
+            self.lists.pop(-1)
+            self.turnsInList -= 1
+            if self.turnsInList <= 0:
+                self.inList = False
 
     def visit_enumerated_list(self, node):  # Ordered list
         if self.turnsInList == 0:
@@ -286,22 +307,27 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             self.inList = False
 
     def visit_list_item(self, node):
-        classes = node.get("classes")
-        level = len(self.lists)
-
-        if "toctree" in str(classes):
-            nline = ""
-        elif "bulleted" in self.lists:
-            nline = bulletIndent[level]
-        elif "numbered" in self.lists:
-            nline = enumIndent[level]
+        if self.inTopicContents and not self.outputTOC:
+            pass
         else:
-            nline = "\nList indentation error!\n"
-        self.body.append(nline)
-        # self.turnsInList = self.turnsInList + 1
+            classes = node.get("classes")
+            level = len(self.lists)
+
+            if "toctree" in str(classes):
+                nline = ""
+            elif "bulleted" in self.lists:
+                nline = bulletIndent[level]
+            elif "numbered" in self.lists:
+                nline = enumIndent[level]
+            else:
+                nline = "\nList indentation error!\n"
+            self.body.append(nline)
+            # self.turnsInList = self.turnsInList + 1
 
     def depart_list_item(self, node):
-        if self.inTable == True:
+        if self.inTopicContents and not self.outputTOC:
+            pass
+        elif self.inTable == True:
             self.body.append("")
         else:
             self.body.append("\n")
@@ -335,7 +361,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             # link, then image
             self.inImgLink = True
 
-        if self.inFigure:
+        if self.inTopicContents and not self.outputTOC:
+            pass
+        elif self.inFigure:
             # Figures are all handled in figure_depart, so skip
             pass
         elif self.inImgLink:
@@ -383,7 +411,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             # print(node)
 
     def depart_reference(self, node):
-        if self.inFigure:
+        if self.inTopicContents and not self.outputTOC:
+            pass
+        elif self.inFigure:
             # Figures are all handled in figure_depart, so skip
             pass
         elif self.inImgLink:
@@ -427,10 +457,16 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.body.append("\n")
 
     def visit_topic(self, node):
-        self.body.append("[verse]\n.")
+        if str(node).startswith('<topic classes="contents" ids="contents"'):
+            # This is the `.. contents:: Contents:` topic
+            self.inTopicContents = True
+            self.body.append(":toc:")
+        else:
+            pass
 
     def depart_topic(self, node):
-        self.body.append("")
+        self.inTopicContents = False
+        self.body.append("\n")
 
     def visit_sidebar(self, node):
         self.body.append("****\n")
