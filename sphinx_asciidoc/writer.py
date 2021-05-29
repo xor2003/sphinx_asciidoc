@@ -119,6 +119,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inDesc = False
         self.inList = False
         self.inField = False
+        self.inImgLink = False
         self.inFigure = False
         self.lastFigure = {"image": "", "caption": "", "legend": "", "ref": ""}
         self.extLinkActive = False
@@ -167,7 +168,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
                 tstr = sectionEquals[level]
             except KeyError:
                 tstr = "= "
-            self.body.append("\n\n%s " % tstr)
+            self.body.append("\n%s " % tstr)
         elif isinstance(node.parent, nodes.table):
             self.body.append("\n.")  # Table title
 
@@ -175,7 +176,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         if isinstance(node.parent, nodes.table):
             self.body.append("\n")  # Table title
         else:
-            self.body.append("\n\n")
+            self.body.append("\n")
 
     def visit_Text(self, node):
         ##        if self.bullet is not None:
@@ -328,10 +329,20 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         aname = node.get("anchorname")
         internal = node.get("internal")
         self.linkType = None
-        if self.inLiteralBlock:
-            pass
-        elif self.inFigure:
+
+        ns = str(node.traverse(include_self=False)[0])
+        if ns.startswith("<image"):
+            # Link warpps an image. Needs to come out
+            # link, then image
+            self.inImgLink = True
+
+        if self.inFigure:
             # Figures are all handled in figure_depart, so skip
+            pass
+        elif self.inImgLink:
+            self.body.append("\n[link::{}]".format(uri))
+
+        elif self.inLiteralBlock:
             pass
         elif internal == True and aname == "" and self.inToctree == True:
             self.linkType = "include"
@@ -340,7 +351,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             self.linkType = "link"
             # Make an attempt to only use the link macro if needed
             if any(x in uri for x in [" ", "^", "__"]):
-                nline = "link:++%s++[" % uri
+                nline = "link:++{}++[".format(uri)
             else:
                 nline = "{}[".format(uri)
             self.body.append(nline)
@@ -376,6 +387,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         if self.inFigure:
             # Figures are all handled in figure_depart, so skip
             pass
+        elif self.inImgLink:
+            self.inImgLink = False
+
         elif self.inLiteralBlock is False:
             self.body.append("]")
 
@@ -670,8 +684,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
                 alt = ""
 
             uri = node.get("uri")
-            nline = "\nimage::%s[%s]" % (uri, alt)
-            self.body.append(nline)
+            self.body.append("\nimage::{}[{}]".format(uri, alt))
 
     def depart_image(self, node):
         if self.inFigure:
@@ -725,6 +738,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     # then output the elements in the correct order & format in the
     # figure_depart.
     def visit_figure(self, node):
+        self.inFigure = True
         for n in node.traverse(include_self=False):
             ns = str(n)
             # print(ns)
@@ -737,34 +751,42 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             elif ns.startswith("<reference"):
                 self.lastFigure["ref"] = n
 
-        self.inFigure = True
-
-    # FIXME: I'm sure there's a better way to do this, triggering a visit fot
+    # FIXME: I'm sure there's a better way to do this, triggering a visit for
     # the elements in the order we want, rather than just outputting it
     # all in here? Maybe self.displatch_visit(node)?
     def depart_figure(self, node):
         if self.lastFigure["caption"] or self.lastFigure["legend"]:
-            cap = self.lastFigure["caption"].astext()
+            try:
+                cap = self.lastFigure["caption"].astext()
+            except AttributeError:
+                cap = ""
+
+            try:
+                leg = self.lastFigure["legend"].astext()
+            except AttributeError:
+                leg = ""
+
             if cap.startswith("."):
                 cap = "\{}".format(cap)
 
             self.body.append(
-                "\n.{}{}\n".format(
+                "\n.{} {}\n".format(
                     cap,
-                    self.lastFigure["legend"].astext(),
+                    leg,
                 )
             )
         if self.lastFigure["ref"]:
             self.body.append("[link={}]\n".format(self.lastFigure["ref"].get("refuri")))
         if self.lastFigure["image"]:
             self.body.append(
-                "image::{}[{}]\n\n".format(
+                "image::{}[{}]\n".format(
                     self.lastFigure["image"].get("uri"),
                     str(self.lastFigure["image"].get("alt") or ""),
                 )
             )
 
         self.inFigure = False
+        self.lastFigure = {"image": "", "caption": "", "legend": "", "ref": ""}
 
     def visit_caption(self, node):
         if self.inFigure:
