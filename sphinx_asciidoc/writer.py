@@ -546,11 +546,20 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     def visit_literal_block(self, node):
         self.inLiteralBlock = True
+
+        cls = node.attributes.get("classes")
+        lang = None
+        if cls and cls[0] == "code":
+            lang = cls[1]
+
         level = len(self.lists)
         attributes = []
         block_char = "----"
         if "language" in node.attributes:
             attributes += ["source", node.attributes["language"]]
+        elif lang:
+            attributes += ["source", lang]
+
         if "linenos" in node.attributes and node.attributes["linenos"] is True:
             attributes.append("linenums")
         if self.inAdmonition == True:
@@ -559,7 +568,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             nline = "+" + block_char
         else:
             nline = block_char
-        attributes.append('sub="attributes"')
+        # attributes.append('sub="attributes"')
         self.body.append("\n[" + ",".join(attributes) + "]\n" + nline + "\n")
 
     def depart_literal_block(self, node):
@@ -830,26 +839,34 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         if not self.inFigure:
             self.body.append(":LEGEND")
 
-    def visit_table(self, node):  ## Whole table element
+    ## Whole table element
+    def visit_table(self, node):
+        print(node)
         self.inTable = True
 
     def depart_table(self, node):
         self.inTable = False
 
-    def visit_tgroup(self, node):  ## Whole inside of the table
+    ## Whole inside of the table
+    def visit_tgroup(self, node):
         cols = node["cols"]
         specs = self.tabColSpecs
-        col = int(round((100 / cols)))
-        clist = [
-            col,
-        ] * cols
+        # Figure out column widths & table width in chars 
+        clist = []
+        tableWidth = 0
+        for n in node.traverse(include_self=False):
+            ns = str(n)
+            if ns.startswith("<colspec"):
+                clist.append(n["colwidth"])
+                tableWidth += n["colwidth"]
+        # Convert col widths to percentages
+        clist = [round(c/tableWidth*100) for c in clist]
+
         if specs == []:
             specs = [
                 "<",
             ] * cols
-        # for i in range(cols):
-        #   clist.append(str(col))
-        cline = ""
+
         for spec in specs:
             i = specs.index(spec)
             if str(spec).lower() == "r":
@@ -858,12 +875,16 @@ class AsciiDocTranslator(nodes.NodeVisitor):
                 specs[i] = "^"
             elif type(spec) != int:
                 specs[i] = "<"
-        for c in range(len(clist)):
-            # i = clist.index(c)
-            if (c + 1) < len(clist):
-                cline = cline + str(specs[c]) + str(clist[c]) + ","
-            else:
-                cline = cline + str(specs[c]) + str(clist[c])
+
+        # Figure out table header line
+        cline = ""
+        sep = ','
+        for i in range(len(clist)):
+            if i == len(clist) - 1:
+                sep = ""
+
+            # cline = cline + str(specs[c]) + str(clist[c]) + "%" + sep
+            cline = "{}{}{}%{}".format(cline, specs[i], clist[i], sep)
 
         specline = '[cols="' + cline + '",options="header"]\n'
         introline = "|===\nh| "
@@ -879,7 +900,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def depart_colspec(self, node):
         pass
 
-    def visit_tabular_col_spec(self, node):  ## Column specifics
+    ## Column specifics
+    def visit_tabular_col_spec(self, node):
         specs = node.get("spec").split("|")
         del specs[-1]
         del specs[0]
@@ -902,7 +924,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def depart_row(self, node):
         self.body.append("\n")
 
-    def visit_entry(self, node):  # Table cell
+    # Table cell
+    def visit_entry(self, node):
         nline = ""
         self.body.append("")
 
@@ -914,6 +937,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     def depart_tbody(self, node):
         pass
+
 
     def visit_subscript(self, node):
         self.body.append("~")
