@@ -249,7 +249,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         if self.listLevel == -1:
             nline = "\n\n"
         elif self.inTable == True:
-            nline = "\n\n"
+            nline = ""
         elif self.inField == True:
             nline = ""
         elif self.inTopicContents and not self.outputTOC:
@@ -883,18 +883,18 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             if i == len(clist) - 1:
                 sep = ""
 
-            # cline = cline + str(specs[c]) + str(clist[c]) + "%" + sep
             cline = "{}{}{}%{}".format(cline, specs[i], clist[i], sep)
 
         specline = '[cols="' + cline + '",options="header"]\n'
-        introline = "|===\nh| "
+        introline = "|===\n"
         self.body.append(specline + introline)
 
     def depart_tgroup(self, node):
         nline = "|===\n"
         self.body.append(nline)
 
-    def visit_colspec(self, node):  ## Column specifics
+    ## Column specifics
+    def visit_colspec(self, node):
         pass
 
     def depart_colspec(self, node):
@@ -910,15 +910,15 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def depart_tabular_col_spec(self, node):
         pass
 
-    def visit_thead(self, node):  ## Table head
+    ## Table head
+    def visit_thead(self, node):
         pass
 
     def depart_thead(self, node):
         pass
 
-    def visit_row(self, node):  # Table row
-        ##        nline = ''
-        ##        self.body.append(nline)
+    # Table row
+    def visit_row(self, node):
         pass
 
     def depart_row(self, node):
@@ -926,11 +926,10 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     # Table cell
     def visit_entry(self, node):
-        nline = ""
-        self.body.append("")
+       self.body.append('|')
 
     def depart_entry(self, node):
-        self.body.append("a| ")
+        pass
 
     def visit_tbody(self, node):
         pass
