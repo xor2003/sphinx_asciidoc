@@ -126,7 +126,6 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inFigure = False
         self.lastFigure = {"image": "", "caption": "", "legend": "", "ref": ""}
         self.inTopicContents = False
-        self.outputTOC = False
         self.extLinkActive = False
         self.inAdmonition = False
         self.tabColSpecs = []
@@ -137,6 +136,17 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inGlossary = False
         self.sourceFile = ""
         self.idPool = []
+
+        # 
+        # Things that should be options, but aren't
+        # 
+        # Output the rendered TOC from docutils, or just `:toc:`
+        self.outputTOC = False
+        # Table column alignment, if not specified. Can be <>^ or
+        # '' for unspecified.
+        self.defaultTableColAlign = ''
+        # Specify percentages for columns widths, or leave browser to auto-layout?
+        self.defaultTableAutolayout = False
 
     def astext(self):
         try:
@@ -669,10 +679,10 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inAdminition = False
 
     def visit_definition_list(self, node):
-        self.body.append("\n\n")
+        self.body.append("\n")
 
     def depart_definition_list(self, node):
-        self.body.append("\n\n")
+        self.body.append("\n")
 
     def visit_definition_list_item(self, node):
         self.body.append("")
@@ -841,7 +851,6 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     ## Whole table element
     def visit_table(self, node):
-        print(node)
         self.inTable = True
 
     def depart_table(self, node):
@@ -864,7 +873,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
         if specs == []:
             specs = [
-                "<",
+                self.defaultTableColAlign,
             ] * cols
 
         for spec in specs:
@@ -874,7 +883,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             elif str(spec).lower() == "c":
                 specs[i] = "^"
             elif type(spec) != int:
-                specs[i] = "<"
+                specs[i] = self.defaultTableColAlign
 
         # Figure out table header line
         cline = ""
