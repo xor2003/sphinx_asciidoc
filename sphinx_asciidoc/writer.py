@@ -137,16 +137,16 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.sourceFile = ""
         self.idPool = []
 
-        # 
+        #
         # Things that should be options, but aren't
-        # 
+        #
         # Output the rendered TOC from docutils, or just `:toc:`
         self.outputTOC = False
         # Table column alignment, if not specified. Can be <>^ or
         # '' for unspecified.
-        self.defaultTableColAlign = ''
+        self.defaultTableColAlign = ""
         # Specify percentages for columns widths, or leave browser to auto-layout?
-        self.defaultTableAutolayout = False
+        self.defaultTableColWidths = False
 
     def astext(self):
         try:
@@ -783,7 +783,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inFigure = True
         for n in node.traverse(include_self=False):
             ns = str(n)
-            # print(ns)
+            # Stash figure parts in self.lastFigure
+            # FIXME: I'm sure there's a better way to figure
+            # out what the element is than startswith.
             if ns.startswith("<image"):
                 self.lastFigure["image"] = n
             elif ns.startswith("<caption"):
@@ -860,22 +862,26 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def visit_tgroup(self, node):
         cols = node["cols"]
         specs = self.tabColSpecs
-        # Figure out column widths & table width in chars 
-        clist = []
-        tableWidth = 0
-        for n in node.traverse(include_self=False):
-            ns = str(n)
-            if ns.startswith("<colspec"):
-                clist.append(n["colwidth"])
-                tableWidth += n["colwidth"]
-        # Convert col widths to percentages
-        clist = [round(c/tableWidth*100) for c in clist]
 
+        # Figure out column widths & table width in chars
+        clist = []
+        if self.defaultTableColWidths:
+            tableWidth = 0
+            for n in node.traverse(include_self=False):
+                ns = str(n)
+                if ns.startswith("<colspec"):
+                    clist.append(n["colwidth"])
+                    tableWidth += n["colwidth"]
+            # Convert col widths to percentages
+            clist = [round(c / tableWidth * 100) for c in clist]
+
+        # Create a default alignment spec for each column
         if specs == []:
             specs = [
                 self.defaultTableColAlign,
             ] * cols
 
+        # If there are col specs in the source, update the default column specs
         for spec in specs:
             i = specs.index(spec)
             if str(spec).lower() == "r":
@@ -887,14 +893,18 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
         # Figure out table header line
         cline = ""
-        sep = ','
+        sep = ","
         for i in range(len(clist)):
             if i == len(clist) - 1:
                 sep = ""
 
             cline = "{}{}{}%{}".format(cline, specs[i], clist[i], sep)
 
-        specline = '[cols="' + cline + '",options="header"]\n'
+        if cline:
+            specline = '[cols="' + cline + '",options="header"]\n'
+        else:
+            specline = '[options="header"]\n'
+
         introline = "|===\n"
         self.body.append(specline + introline)
 
@@ -935,7 +945,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     # Table cell
     def visit_entry(self, node):
-       self.body.append('|')
+        self.body.append("|")
 
     def depart_entry(self, node):
         pass
@@ -945,7 +955,6 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     def depart_tbody(self, node):
         pass
-
 
     def visit_subscript(self, node):
         self.body.append("~")
