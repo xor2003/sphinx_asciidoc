@@ -205,7 +205,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         if self.inTopicContents and not self.outputTOC:
             pass
         elif self.inFigure:
-            # Figures are all handled in figure_depart, so skip
+            # Figures are all handled in depart_figure, so skip
             pass
         else:
             if self.inLineBlock == True:
@@ -367,35 +367,35 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             ns = str(n)
 
         if ns.startswith("<image"):
-            # Link warpps an image. Needs to come out
-            # link, then image
+            # Link wraps an image. Needs to come out in
+            # the opposite order: link, then image
             self.inImgLink = True
 
         if self.inTopicContents and not self.outputTOC:
             pass
         elif self.inFigure:
-            # Figures are all handled in figure_depart, so skip
+            # Figures are all handled in depart_figure, so skip
             pass
         elif self.inImgLink:
-            self.body.append("\n[link::{}]".format(uri))
+            self.body.append(f"\n[link::{uri}]")
 
         elif self.inLiteralBlock:
             pass
         elif internal == True and aname == "" and self.inToctree == True:
             self.linkType = "include"
-            self.body.append("include::%s[leveloffset=+1][" % uri)
+            self.body.append(f"include::{uri}[leveloffset=+1][")
         elif uri and name:
             self.linkType = "link"
             # Make an attempt to only use the link macro if needed
-            if any(x in uri for x in [" ", "^", "__"]):
-                nline = "link:++{}++[".format(uri)
+            if any(x in uri for x in [" ", "^", "__"]) or uri.startswith("{filename}"):
+                nline = f"link:++{uri}++["
             else:
-                nline = "{}[".format(uri)
+                nline = f"{uri}["
             self.body.append(nline)
         elif refid:
             self.linkType = "refx"
             if self.inToctree == False:
-                self.body.append("xref:%s[" % refid)
+                self.body.append(f"xref:{refid}[")
             else:
                 pass
         elif uri:
@@ -406,16 +406,16 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             except IndexError:
                 uri = str(uri[0])
             if ".adoc" in uri:
-                self.body.append("xref:fileref=%s[" % uri)
+                self.body.append(f"xref:fileref={uri}[")
             else:
                 if uri.startswith("mailto") or uri.startswith("http"):
-                    self.body.append("%s[" % uri)
+                    self.body.append(f"{uri}[")
                 else:
                     if aname == ("#" + str(uri)):
                         self.body.append("\n//")
                         self.inUseless = True
                     else:
-                        self.body.append("xref:%s[" % uri)
+                        self.body.append(f"xref:{uri}[")
         else:
             pass
             # print(node)
@@ -424,7 +424,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         if self.inTopicContents and not self.outputTOC:
             pass
         elif self.inFigure:
-            # Figures are all handled in figure_depart, so skip
+            # Figures are all handled in depart_figure, so skip
             pass
         elif self.inImgLink:
             self.inImgLink = False
@@ -718,7 +718,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     def visit_image(self, node):
         if self.inFigure:
-            # Figures are all handled in figure_depart, so skip
+            # Figures are all handled in depart_figure, so skip
             pass
         else:
             try:
@@ -733,7 +733,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     def depart_image(self, node):
         if self.inFigure:
-            # Figures are all handled in figure_depart, so skip
+            # Figures are all handled in depart_figure, so skip
             pass
         else:
             self.body.append("\n\n")
@@ -768,7 +768,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         pass
 
     def visit_system_message(self, node):
-        self.body.append("System message: ")
+        self.body.append("\n// System message: ")
 
     def depart_system_message(self, node):
         # self.body.append('')
@@ -778,7 +778,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     # order to the source rst, as well as having a different syntax.
     # This means that we need to buffer the figure into self.lastFigure,
     # then output the elements in the correct order & format in the
-    # figure_depart.
+    # depart_figure.
     def visit_figure(self, node):
         self.inFigure = True
         for n in node.traverse(include_self=False):
@@ -834,7 +834,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     def visit_caption(self, node):
         if self.inFigure:
-            # Figures are all handled in figure_depart, so skip
+            # Figures are all handled in depart_figure, so skip
             pass
         else:
             self.body.append("\n:toctitle: ")
