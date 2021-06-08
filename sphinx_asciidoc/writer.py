@@ -387,8 +387,13 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         elif uri and name:
             self.linkType = "link"
             # Make an attempt to only use the link macro if needed
-            if any(x in uri for x in [" ", "^", "__"]) or uri.startswith("{filename}"):
-                nline = f"link:++{uri}++["
+            print(uri)
+            if (
+                any(x in uri for x in [" ", "^", "__"])
+                or uri.startswith("{filename}")
+                or uri.startswith("/")
+            ):
+                nline = f"link:++{uri}["
             else:
                 nline = f"{uri}["
             self.body.append(nline)
