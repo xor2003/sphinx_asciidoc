@@ -521,6 +521,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             refid = node.get("refid")
             ids = node.get("ids")
             refuri = node.get("refuri")
+            names = node.get("names")
         except IndexError:
             self.idcount += 1
             refid = "automatic-id%s" % self.idcount
@@ -536,7 +537,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
                     self.body.append('[id="%s"]' % refid)
         elif len(ids) == 1 and refuri.startswith("#"):
             self.body.append(
-                f"<<{refuri.replace('#', '_').replace('-', '_')},{ids[0]}>>"
+                f"<<{refuri.replace('#', '_').replace('-', '_')},{names[0]}>>"
             )
 
         elif ids and refuri:
@@ -623,13 +624,13 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inLiteralBlock = False
 
     def visit_emphasis(self, node):
-        self.body.append(" _")
+        self.body.append("_")
 
     def depart_emphasis(self, node):
         self.body.append("_")
 
     def visit_literal_emphasis(self, node):
-        self.body.append(" `*")
+        self.body.append("`*")
 
     def depart_literal_emphasis(self, node):
         self.body.append("*`")
