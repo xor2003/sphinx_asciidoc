@@ -123,8 +123,17 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inList = False
         self.inField = False
         self.inImgLink = False
+        self.inInternalRef = False
+        self.inFootnote = False
+        self.inLabel = False
         self.inFigure = False
-        self.lastFigure = {"image": "", "caption": "", "legend": "", "ref": ""}
+        self.lastFigure = {
+            "image": "",
+            "caption": "",
+            "legend": "",
+            "ref": "",
+            "align": "",
+        }
         self.inTopicContents = False
         self.extLinkActive = False
         self.inAdmonition = False
@@ -146,7 +155,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         # '' for unspecified.
         self.defaultTableColAlign = ""
         # Specify percentages for columns widths, or leave browser to auto-layout?
-        self.defaultTableColWidths = False
+        self.defaultTableColWidths = True
 
     def astext(self):
         try:
@@ -207,6 +216,10 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         elif self.inFigure:
             # Figures are all handled in depart_figure, so skip
             pass
+        elif self.inInternalRef:
+            pass
+        elif self.inFootnote and self.inLabel:
+            pass
         else:
             if self.inLineBlock == True:
                 self.body.append(node.astext() + " +")
@@ -216,7 +229,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def depart_Text(self, node):
         pass
 
-    def visit_strong(self, node):  # Does the bold face
+    # Does the bold face
+    def visit_strong(self, node):
         self.body.append("*")
 
     def depart_strong(self, node):
@@ -387,15 +401,25 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         elif uri and name:
             self.linkType = "link"
             # Make an attempt to only use the link macro if needed
-            print(uri)
-            if (
-                any(x in uri for x in [" ", "^", "__"])
-                or uri.startswith("{filename}")
-                or uri.startswith("/")
-            ):
-                nline = f"link:++{uri}["
+            if any(x in uri for x in [" ", "^", "__"]):
+                use_link_macro = True
+                link_passthrough = "++"
             else:
-                nline = f"{uri}["
+                use_link_macro = False
+                link_passthrough = ""
+
+            if uri.startswith("{filename}") or uri.startswith("/"):
+                use_link_macro = True
+
+            if use_link_macro:
+                nline = f"link:{link_passthrough}{uri}["
+            else:
+                if uri.startswith("#"):
+                    self.inInternalRef = True
+                    nline = ""
+                else:
+                    nline = f"{uri}["
+
             self.body.append(nline)
         elif refid:
             self.linkType = "refx"
@@ -423,11 +447,12 @@ class AsciiDocTranslator(nodes.NodeVisitor):
                         self.body.append(f"xref:{uri}[")
         else:
             pass
-            # print(node)
 
     def depart_reference(self, node):
         if self.inTopicContents and not self.outputTOC:
             pass
+        elif self.inInternalRef:
+            self.inInternalRef = False
         elif self.inFigure:
             # Figures are all handled in depart_figure, so skip
             pass
@@ -462,9 +487,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def depart_copyright(self, node):
         self.body.append("\n\n")
 
-    def visit_rubric(
-        self, node
-    ):  # This holds a place for some listings, such as footnotes.
+    # This holds a place for some listings, such as footnotes.
+    def visit_rubric(self, node):
         self.body.append("\n")
         self.body.append(".")
 
@@ -475,7 +499,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         if str(node).startswith('<topic classes="contents" ids="contents"'):
             # This is the `.. contents:: Contents:` topic
             self.inTopicContents = True
-            self.body.append(":toc:")
+            if not self.outputTOC:
+                # Don't output the pre-rendered TOC from docutils, just output this instead
+                self.body.append(":toc:")
         else:
             pass
 
@@ -489,8 +515,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def depart_sidebar(self, node):
         self.body.append("****")
 
+    # Create internal inline links.
     def visit_target(self, node):
-        # Create internal inline links.
         try:
             refid = node.get("refid")
             ids = node.get("ids")
@@ -498,6 +524,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         except IndexError:
             self.idcount += 1
             refid = "automatic-id%s" % self.idcount
+
         if refid:
             while True:
                 if refid not in self.idPool:
@@ -507,6 +534,11 @@ class AsciiDocTranslator(nodes.NodeVisitor):
                 else:
                     refid = refid + "-duplicate"
                     self.body.append('[id="%s"]' % refid)
+        elif len(ids) == 1 and refuri.startswith("#"):
+            self.body.append(
+                f"<<{refuri.replace('#', '_').replace('-', '_')},{ids[0]}>>"
+            )
+
         elif ids and refuri:
             self.body.append("")
         else:
@@ -693,7 +725,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.body.append("")
 
     def depart_definition_list_item(self, node):
-        self.body.append("\n")
+        self.body.append("")
 
     def visit_term(self, node):
         if self.inGlossary == True:
@@ -717,7 +749,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.body.append("\n")
 
     def depart_definition(self, node):
-        self.body.append("\n\n")
+        self.body.append("\n")
         if self.inGlossary == True:
             self.section_level -= 1
 
@@ -745,8 +777,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     def visit_footnote_reference(self, node):
         try:
-            ref = str(node.get("refid")[0])
-            nline = "footnoteref:[" + ref + ","
+            ref = node.get("refid")
+            nline = "{fn-" + ref + "}["
         except KeyError:
             pass
         self.body.append(nline)
@@ -755,16 +787,24 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.body.append("] ")
 
     def visit_footnote(self, node):
-        pass
+        self.inFootnote = True
+
+        id = node.get("ids")[0]
+        self.body.append(f":fn-{id}: footnote:fn-{id}[")
 
     def depart_footnote(self, node):
-        self.body.append("\n")
+        self.inFootnote = False
+        self.body.append("]\n")
 
     def visit_label(self, node):
-        self.body.append("[[*")
+        self.inLabel = True
+        if not self.inFootnote:
+            self.body.append("[[*")
 
     def depart_label(self, node):
-        self.body.append("*]]")
+        self.inLabel = False
+        if not self.inFootnote:
+            self.body.append("*]]")
 
     def visit_contents(self, node):
         self.body.append("== ")
@@ -786,11 +826,18 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     # depart_figure.
     def visit_figure(self, node):
         self.inFigure = True
-        for n in node.traverse(include_self=False):
+        for n in node.traverse(include_self=True):
             ns = str(n)
             # Stash figure parts in self.lastFigure
             # FIXME: I'm sure there's a better way to figure
             # out what the element is than startswith.
+
+            if ns.startswith("<figure"):
+                try:
+                    self.lastFigure["align"] = node.get("align")
+                except:
+                    self.lastFigure["align"] = ""
+
             if ns.startswith("<image"):
                 self.lastFigure["image"] = n
             elif ns.startswith("<caption"):
@@ -804,6 +851,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     # the elements in the order we want, rather than just outputting it
     # all in here? Maybe self.displatch_visit(node)?
     def depart_figure(self, node):
+        if self.lastFigure["align"]:
+            self.body.append(f"[.align-{self.lastFigure['align']}]")
+
         if self.lastFigure["caption"] or self.lastFigure["legend"]:
             try:
                 cap = self.lastFigure["caption"].astext()
@@ -859,6 +909,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     ## Whole table element
     def visit_table(self, node):
         self.inTable = True
+        self.body.append("\n")
 
     def depart_table(self, node):
         self.inTable = False
@@ -973,9 +1024,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def depart_superscript(self, node):
         self.body.append("^")
 
-    def visit_title_reference(
-        self, node
-    ):  # This, in rst, was rendered as typeface font only.
+    # This, in rst, was rendered as typeface font only.
+    def visit_title_reference(self, node):
         self.body.append("`*")
 
     def depart_title_reference(self, node):
@@ -990,8 +1040,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inLineBlock = False
 
     def visit_line(self, node):
-        nlink = ""
-        self.body.append(nlink)
+        self.body.append("")
 
     def depart_line(self, node):
         self.body.append("\n")
@@ -1002,9 +1051,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
     def depart_comment(self, node):
         self.body.append("\n////\n\n")
 
-    def visit_problematic(
-        self, node
-    ):  # Occurs when the rst source files have an error in them.
+    # Occurs when the rst source files have an error in them.
+    def visit_problematic(self, node):
         self.body.append("*Problematic*, check error messages! : ")
 
     def depart_problematic(self, node):
@@ -1184,7 +1232,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.body.append(":: ")
 
     def depart_description(self, node):
-        self.body.append("\n")
+        pass
+        # self.body.append("\n")
 
     def visit_field_list(self, node):
         self.body.append("\n|===\n")
