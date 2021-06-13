@@ -125,6 +125,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inImgLink = False
         self.inInternalRef = False
         self.inFootnote = False
+        self.atFootnoteStart = False
         self.inFootnoteRef = False
         self.inLabel = False
         self.inFigure = False
@@ -234,6 +235,11 @@ class AsciiDocTranslator(nodes.NodeVisitor):
                 self.body.append(node.astext())
 
     def depart_Text(self, node):
+        # if self.atFootnoteStart:
+        #     # Remove leading newline from footnote, so that the
+        #     # starting [ is on the same line
+        #     del self.body[-1]
+        #     self.atFootnoteStart = False
         pass
 
     # Does the bold face
@@ -816,6 +822,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             nline = f"{{fn-{ref}{fnref}}}"
         except KeyError:
             pass
+
         self.body.append(nline)
 
     def depart_footnote_reference(self, node):
@@ -825,12 +832,17 @@ class AsciiDocTranslator(nodes.NodeVisitor):
 
     def visit_footnote(self, node):
         self.inFootnote = True
+        self.atFootnoteStart = True
 
         id = node.get("ids")[0]
         self.body.append(f":fn-{id}: footnote:fn-{id}[")
 
     def depart_footnote(self, node):
         self.inFootnote = False
+        self.atFootnoteStart = False
+        # Remove the trailing newline at the end of the footnote, so that the
+        # closing ] end's up on the same line.
+        del self.body[-1]
         self.body.append("]\n")
 
     def visit_label(self, node):
