@@ -58,7 +58,7 @@ how should the html rendering from *Asciidoctor* look like.
 
 There's no support for ABBR:: AsciiDoc doesn't have an equivalent and the base docutils doesn't have a text role for this either, so it'll throw an error.
 Footnotes position:: Intentionally, footnotes get converted into AsciiDoc document attributes and referenced in the text. This only works if the doc references are defined before they're used, so you'd generally put them at the start. However, because of the way the converter works, they'll end up wherever they were in the reST document - possibly at the bottom. You might need to move them.
-Footnote have leading newline:: The footnotes have a leading newline that will need to be removed manually before they will work properly.
+Footnotes have leading newline:: The footnotes have a leading newline that will need to be removed manually before they will work properly.
 
 Converted Toctree includes chapters twice:: 
 
