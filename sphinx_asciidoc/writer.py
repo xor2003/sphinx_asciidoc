@@ -273,7 +273,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             nline = ""
         else:
             nline = "\n"
-        self.body.append(nline)
+
+        if nline:
+            self.body.append(nline)
 
     @dedent
     def depart_paragraph(self, node):
@@ -287,10 +289,12 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             nline = ""
         else:
             nline = "\n"
-        self.body.append(nline)
+
+        if nline:
+            self.body.append(nline)
 
     def visit_compact_paragraph(self, node):
-        self.body.append("")
+        pass
 
     @dedent
     def depart_compact_paragraph(self, node):
@@ -359,9 +363,9 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         if self.inTopicContents and not self.outputTOC:
             pass
         elif self.inTable == True:
-            self.body.append("")
+            pass
         else:
-            self.body.append("")
+            pass
 
     def visit_block_quote(self, node):
         self.body.append("\n[quote]\n____")
