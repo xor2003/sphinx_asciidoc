@@ -766,7 +766,15 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             except KeyError:
                 alt = ""
 
+            try:
+                align = node.get("align")
+            except:
+                align = ""
+
             uri = node.get("uri")
+
+            if align:
+                self.body.append(f"[.align-{align}]")
             self.body.append("\nimage::{}[{}]".format(uri, alt))
 
     def depart_image(self, node):
