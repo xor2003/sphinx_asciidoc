@@ -125,8 +125,11 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.inImgLink = False
         self.inInternalRef = False
         self.inFootnote = False
+        self.inFootnoteRef = False
         self.inLabel = False
         self.inFigure = False
+        # Accumulate the figure parts in here, so we can
+        # output them in a different order in depart_figure
         self.lastFigure = {
             "image": "",
             "caption": "",
@@ -156,6 +159,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.defaultTableColAlign = ""
         # Specify percentages for columns widths, or leave browser to auto-layout?
         self.defaultTableColWidths = True
+        # Do you want to output the [1] ref's after the {footnote}, or let asciidoctor do it?
+        self.outputFootnoteRef = False
 
     def astext(self):
         try:
@@ -217,6 +222,8 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             # Figures are all handled in depart_figure, so skip
             pass
         elif self.inInternalRef:
+            pass
+        elif self.inFootnoteRef and not self.outputFootnoteRef:
             pass
         elif self.inFootnote and self.inLabel:
             pass
@@ -354,7 +361,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         elif self.inTable == True:
             self.body.append("")
         else:
-            self.body.append("\n")
+            self.body.append("")
 
     def visit_block_quote(self, node):
         self.body.append("\n[quote]\n____")
@@ -794,15 +801,23 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             self.body.append("\n\n")
 
     def visit_footnote_reference(self, node):
+        self.inFootnoteRef = True
+        if self.outputFootnoteRef:
+            fnref = "["
+        else:
+            fnref = ""
+
         try:
             ref = node.get("refid")
-            nline = "{fn-" + ref + "}["
+            nline = f"{{fn-{ref}{fnref}}}"
         except KeyError:
             pass
         self.body.append(nline)
 
     def depart_footnote_reference(self, node):
-        self.body.append("] ")
+        self.inFootnoteRef = False
+        if self.outputFootnoteRef:
+            self.body.append("]")
 
     def visit_footnote(self, node):
         self.inFootnote = True
