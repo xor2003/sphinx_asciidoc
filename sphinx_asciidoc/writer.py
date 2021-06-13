@@ -357,10 +357,10 @@ class AsciiDocTranslator(nodes.NodeVisitor):
             self.body.append("\n")
 
     def visit_block_quote(self, node):
-        pass
+        self.body.append("\n[quote]\n____")
 
     def depart_block_quote(self, node):
-        pass
+        self.body.append("____\n")
 
     def visit_toctree(self, node):
         pass
