@@ -408,11 +408,20 @@ class AsciiDocTranslator(nodes.NodeVisitor):
                 use_link_macro = False
                 link_passthrough = ""
 
-            if uri.startswith("{filename}") or uri.startswith("/"):
+            if (
+                uri.startswith("{filename}")
+                or uri.startswith("|filename|")
+                or uri.startswith("{static}")
+                or uri.startswith("/")
+            ):
                 use_link_macro = True
+                link_passthrough = "++"
+
+            if uri.startswith("|filename|"):
+                uri = uri.replace("|filename|", "{filename}")
 
             if use_link_macro:
-                nline = f"link:{link_passthrough}{uri}["
+                nline = f"link:{link_passthrough}{uri}{link_passthrough}["
             else:
                 if uri.startswith("#"):
                     self.inInternalRef = True
