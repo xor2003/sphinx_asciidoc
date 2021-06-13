@@ -1076,7 +1076,7 @@ class AsciiDocTranslator(nodes.NodeVisitor):
         self.body.append("\n")
 
     def visit_transition(self, node):
-        self.body.append("\n* * *")
+        self.body.append("\n---")
 
     def depart_transition(self, node):
         self.body.append("\n")
